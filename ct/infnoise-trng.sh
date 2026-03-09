@@ -124,6 +124,33 @@ ensure_config_line() {
   fi
 }
 
+remove_config_line() {
+  local line="$1"
+
+  if [[ -z "$CT_CONFIG_PATH" ]]; then
+    CT_CONFIG_PATH="/etc/pve/lxc/${CTID}.conf"
+  fi
+
+  if [[ ! -f "$CT_CONFIG_PATH" ]]; then
+    msg_error "Container config not found at $CT_CONFIG_PATH"
+    exit 1
+  fi
+
+  python3 - "$CT_CONFIG_PATH" "$line" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+target = sys.argv[2]
+
+lines = path.read_text().splitlines()
+updated = [line for line in lines if line != target]
+
+if updated != lines:
+    path.write_text("\n".join(updated) + "\n")
+PY
+}
+
 upsert_config_entry() {
   local key="$1"
   local value="$2"
@@ -184,7 +211,8 @@ set_container_description
 
 msg_info "Configuring USB passthrough for CT $CTID"
 ensure_config_line "lxc.cgroup2.devices.allow: c 189:* rwm"
-upsert_config_entry "mp0" "/dev/bus/usb,mp=/dev/bus/usb"
+remove_config_line "mp0: /dev/bus/usb,mp=/dev/bus/usb"
+ensure_config_line "lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,optional,create=dir"
 restart_container
 msg_ok "USB access configured"
 

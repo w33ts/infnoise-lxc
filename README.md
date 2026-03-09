@@ -91,10 +91,12 @@ To repair an already-created container manually from the Proxmox host:
 
 ```bash
 printf '%s\n' 'lxc.cgroup2.devices.allow: c 189:* rwm' >> /etc/pve/lxc/<CTID>.conf
-printf '%s\n' 'mp0: /dev/bus/usb,mp=/dev/bus/usb' >> /etc/pve/lxc/<CTID>.conf
+printf '%s\n' 'lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,optional,create=dir' >> /etc/pve/lxc/<CTID>.conf
 pct stop <CTID>
 pct start <CTID>
 ```
+
+If the helper fails right after `Configuring USB passthrough` and `pct start` exits with `255`, the usual cause is the older `mp0: /dev/bus/usb,mp=/dev/bus/usb` bind mount. That mount is strict about the host path existing at start time, so the CT can fail to boot when `/dev/bus/usb` is temporarily unavailable. The current helper uses `lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,optional,create=dir` instead, which keeps the CT bootable and still exposes the USB bus when it is present.
 
 Also make sure the environment variable and `bash` command are separated. This is invalid:
 
@@ -169,7 +171,7 @@ python3 /opt/infnoise-trng/trng-push.py
 
 - This sidecar uses the driver's normal whitened output. It does not expose raw `--raw` bits to the public API.
 - Health values come from the driver's own debug reporting, which is enough for the status page and refill monitoring.
-- The helper script mounts `/dev/bus/usb` into the container and adds the needed cgroup permission, but you may still need to adjust the exact passthrough on your host if your USB topology changes.
+- The helper script mounts `/dev/bus/usb` into the container with `lxc.mount.entry ... bind,optional,create=dir` and adds the needed cgroup permission, but you may still need to adjust the exact passthrough on your host if your USB topology changes.
 
 ## License
 
