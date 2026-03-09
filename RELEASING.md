@@ -13,18 +13,20 @@ The host-side helper script downloads that tarball, pushes the payload into the 
 
 1. Make sure `main` contains the changes you want to ship.
 2. Pick a new semantic version tag such as `v0.1.1`.
-3. Update versioned install commands in `README.md` so they point at that new tag.
-4. Create and push the tag.
-5. Wait for the `Release` GitHub Actions workflow to finish.
-6. Confirm the GitHub Release contains the tarball and checksum assets.
-7. Test the Proxmox host install flow with the new tag.
+3. Update `VERSION` and run `scripts/update-release-version.sh`.
+4. Commit the regenerated docs.
+5. Create and push the tag.
+6. Wait for the `Release` GitHub Actions workflow to finish.
+7. Confirm the GitHub Release contains the tarball, checksum assets, and install commands.
+8. Test the Proxmox host install flow with the new tag.
 
 ## Local validation
 
 Run these checks before tagging:
 
 ```bash
-bash -n ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh
+scripts/update-release-version.sh --check
+bash -n ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh scripts/update-release-version.sh scripts/render-release-body.sh
 python3 -m py_compile scripts/trng-push.py
 ./scripts/release-package.sh test-build
 ```
@@ -32,7 +34,7 @@ python3 -m py_compile scripts/trng-push.py
 If `shellcheck` is installed locally, also run:
 
 ```bash
-shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh
+shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh scripts/update-release-version.sh scripts/render-release-body.sh
 ```
 
 ## Create a release tag
@@ -40,6 +42,9 @@ shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-
 ```bash
 git checkout main
 git pull --ff-only
+printf '%s\n' v0.1.1 > VERSION
+scripts/update-release-version.sh
+git commit -am "Prepare v0.1.1 release"
 git tag v0.1.1
 git push origin v0.1.1
 ```
@@ -47,8 +52,10 @@ git push origin v0.1.1
 The tag push triggers `.github/workflows/release.yml`, which:
 
 - validates the shell scripts
+- verifies `README.md` and `RELEASING.md` match `VERSION`
 - builds the release tarball with `scripts/release-package.sh`
 - uploads the tarball and checksum to the GitHub Release page
+- adds install commands for that exact tag to the release body
 
 ## Verify the published assets
 

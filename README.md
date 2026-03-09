@@ -31,7 +31,7 @@ The public API is meant to serve from a prefetched pool in Cloudflare D1. This s
 
 ### Option 1: run the Proxmox helper from the host
 
-Run the helper directly on the Proxmox host and pin it to the current release tag (`v0.1.1`):
+Run the helper directly on the Proxmox host and pin it to the current release tag (`v0.1.1`). This section is kept in sync with `VERSION` by `scripts/update-release-version.sh`:
 
 ```bash
 INFNOISE_LXC_REF="v0.1.1" bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
@@ -159,6 +159,7 @@ python3 /opt/infnoise-trng/trng-push.py
 
 - Proxmox host installs require `INFNOISE_LXC_REF` to be set to an explicit tag.
 - Tagging `v*` publishes `infnoise-lxc-<tag>.tar.gz` and a `.sha256` checksum as GitHub release assets.
+- The GitHub release body includes install commands for the exact published tag.
 - The release package is built by `scripts/release-package.sh` and contains the helper, installer, service files, udev rule, env template, and docs.
 - CI validates the shell scripts and verifies that the release package can be built before merge.
 - `RELEASING.md` documents the tag-and-publish workflow.
