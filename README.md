@@ -29,15 +29,42 @@ The public API is meant to serve from a prefetched pool in Cloudflare D1. This s
 
 ## Quick start
 
-### Option 1: run the installer inside an existing LXC
+### Option 1: run the Proxmox helper from the host
+
+Run the helper directly on the Proxmox host and pin it to an explicit release tag:
+
+```bash
+export INFNOISE_LXC_REF="v0.1.0"
+bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
+```
+
+What happens:
+
+1. the helper creates a Debian 13 LXC
+2. it mounts `/dev/bus/usb` into the container and adds USB cgroup access
+3. it downloads the matching release tarball from GitHub
+4. it copies the installer payload into the container
+5. it runs the in-container installer and enables `infnoise-trng.timer`
+
+After the container is created, edit `/etc/default/infnoise-trng` inside it, set the ingest token, and start the timer.
+
+You can override the release asset URL for testing:
+
+```bash
+export INFNOISE_LXC_REF="v0.1.0"
+export INFNOISE_LXC_TARBALL_URL="https://github.com/w33ts/infnoise-lxc/releases/download/v0.1.0/infnoise-lxc-v0.1.0.tar.gz"
+bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
+```
+
+### Option 2: run the installer inside an existing LXC
 
 1. Create a Debian 13 container.
 2. Pass the USB device through to the container.
-3. Clone this repository into the container.
+3. Download and extract a release tarball inside the container.
 4. Run:
 
 ```bash
-sudo ./install/infnoise-trng-install.sh
+INSTALL_ROOT=/path/to/infnoise-lxc-v0.1.0 sudo /path/to/infnoise-lxc-v0.1.0/install/infnoise-trng-install.sh
 ```
 
 5. Copy `.env.example` to `/etc/default/infnoise-trng` and fill in the token.
@@ -46,17 +73,6 @@ sudo ./install/infnoise-trng-install.sh
 ```bash
 sudo systemctl enable --now infnoise-trng.timer
 ```
-
-### Option 2: use the Proxmox helper script
-
-Set the repo URL first so the helper knows what to clone:
-
-```bash
-export INFNOISE_LXC_REPO_URL="https://github.com/w33ts/infnoise-lxc.git"
-bash ct/infnoise-trng.sh
-```
-
-After the container is created, edit `/etc/default/infnoise-trng` inside it and start the timer.
 
 ## Configuration
 
@@ -93,6 +109,14 @@ journalctl -u infnoise-trng.service -n 100 --no-pager
 python3 /opt/infnoise-trng/trng-push.py
 /usr/local/bin/infnoise --debug --no-output
 ```
+
+## Releases
+
+- Proxmox host installs require `INFNOISE_LXC_REF` to be set to an explicit tag.
+- Tagging `v*` publishes `infnoise-lxc-<tag>.tar.gz` and a `.sha256` checksum as GitHub release assets.
+- The release package is built by `scripts/release-package.sh` and contains the helper, installer, service files, udev rule, env template, and docs.
+- CI validates the shell scripts and verifies that the release package can be built before merge.
+- `RELEASING.md` documents the tag-and-publish workflow.
 
 ## Notes
 

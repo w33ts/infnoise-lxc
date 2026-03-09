@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Validate scripts
+        run: shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh
+
+      - name: Build release package
+        run: scripts/release-package.sh "$GITHUB_REF_NAME"
+
+      - name: Publish GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          overwrite_files: true
+          files: |
+            dist/infnoise-lxc-${{ github.ref_name }}.tar.gz
+            dist/infnoise-lxc-${{ github.ref_name }}.sha256

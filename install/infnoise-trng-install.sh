@@ -1,12 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+INSTALL_ROOT="${INSTALL_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 APP_DIR="/opt/infnoise-trng"
 BUILD_DIR="/usr/local/src/infnoise-src"
 ENV_FILE="/etc/default/infnoise-trng"
 INFNOISE_REPO_URL="${INFNOISE_REPO_URL:-https://github.com/13-37-org/infnoise.git}"
 INFNOISE_REF="${INFNOISE_REF:-0.3.0}"
+
+require_file() {
+  local path="$1"
+  if [[ ! -f "$path" ]]; then
+    printf 'missing required file: %s\n' "$path" >&2
+    exit 1
+  fi
+}
+
+require_file "$INSTALL_ROOT/scripts/trng-push.py"
+require_file "$INSTALL_ROOT/systemd/infnoise-trng.service"
+require_file "$INSTALL_ROOT/systemd/infnoise-trng.timer"
+require_file "$INSTALL_ROOT/udev/99-infnoise.rules"
+require_file "$INSTALL_ROOT/.env.example"
 
 apt-get update
 apt-get install -y build-essential ca-certificates curl git libftdi-dev libusb-dev python3 python3-venv udev
@@ -17,13 +31,13 @@ make -C "$BUILD_DIR/software" -f Makefile.linux
 install -m 0755 "$BUILD_DIR/software/infnoise" /usr/local/bin/infnoise
 
 install -d -m 0755 "$APP_DIR"
-install -m 0755 "$REPO_ROOT/scripts/trng-push.py" "$APP_DIR/trng-push.py"
-install -m 0644 "$REPO_ROOT/systemd/infnoise-trng.service" /etc/systemd/system/infnoise-trng.service
-install -m 0644 "$REPO_ROOT/systemd/infnoise-trng.timer" /etc/systemd/system/infnoise-trng.timer
-install -m 0644 "$REPO_ROOT/udev/99-infnoise.rules" /etc/udev/rules.d/99-infnoise.rules
+install -m 0755 "$INSTALL_ROOT/scripts/trng-push.py" "$APP_DIR/trng-push.py"
+install -m 0644 "$INSTALL_ROOT/systemd/infnoise-trng.service" /etc/systemd/system/infnoise-trng.service
+install -m 0644 "$INSTALL_ROOT/systemd/infnoise-trng.timer" /etc/systemd/system/infnoise-trng.timer
+install -m 0644 "$INSTALL_ROOT/udev/99-infnoise.rules" /etc/udev/rules.d/99-infnoise.rules
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  install -m 0600 "$REPO_ROOT/.env.example" "$ENV_FILE"
+  install -m 0600 "$INSTALL_ROOT/.env.example" "$ENV_FILE"
 fi
 
 udevadm control --reload-rules || true
