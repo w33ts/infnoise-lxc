@@ -19,16 +19,27 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
+      - name: Verify tag matches VERSION
+        run: test "$(tr -d '[:space:]' < VERSION)" = "$GITHUB_REF_NAME"
+
+      - name: Verify release docs are in sync
+        run: scripts/update-release-version.sh --check
+
       - name: Validate scripts
-        run: shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh
+        run: shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh scripts/update-release-version.sh scripts/render-release-body.sh
 
       - name: Build release package
         run: scripts/release-package.sh "$GITHUB_REF_NAME"
+
+      - name: Build release notes
+        run: scripts/render-release-body.sh "$GITHUB_REF_NAME" > dist/release-notes.md
 
       - name: Publish GitHub release assets
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          append_body: true
+          body_path: dist/release-notes.md
           overwrite_files: true
           files: |
             dist/infnoise-lxc-${{ github.ref_name }}.tar.gz

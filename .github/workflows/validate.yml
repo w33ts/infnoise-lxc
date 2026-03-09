@@ -17,8 +17,11 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
+      - name: Verify release docs are in sync
+        run: scripts/update-release-version.sh --check
+
       - name: Run shellcheck
-        run: shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh
+        run: shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-package.sh scripts/update-release-version.sh scripts/render-release-body.sh
 
       - name: Verify release package
         run: scripts/release-package.sh test-build
