@@ -52,7 +52,7 @@ What happens:
 4. it copies the installer payload into the container
 5. it runs the in-container installer and enables `infnoise-trng.timer`
 
-After the container is created, edit `/etc/default/infnoise-trng` inside it, set the ingest token, and start the timer.
+After the container is created, the Proxmox console should autologin as `root`. You can also enter it from the host with `pct enter <CTID>`. Edit `/etc/default/infnoise-trng` inside it, set the ingest token, and start the timer.
 
 You can override the release asset URL for testing:
 
@@ -97,6 +97,10 @@ pct start <CTID>
 ```
 
 If the helper fails right after `Configuring USB passthrough` and `pct start` exits with `255`, the usual cause is the older `mp0: /dev/bus/usb,mp=/dev/bus/usb` bind mount. That mount is strict about the host path existing at start time, so the CT can fail to boot when `/dev/bus/usb` is temporarily unavailable. The current helper uses `lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,optional,create=dir` instead, which keeps the CT bootable and still exposes the USB bus when it is present.
+
+If the installer prints `Failed to send reload request: No such file or directory` during the udev step, you were hitting a container without a running `udevd` control socket. Current versions detect that case and skip the reload instead of surfacing a misleading failure.
+
+If the console lands on a `login:` prompt instead of autologging in, you are running an older release that did not install a `console-getty.service` autologin override. Current versions configure the console to open directly as `root`, while `pct enter <CTID>` continues to work from the Proxmox host.
 
 Also make sure the environment variable and `bash` command are separated. This is invalid:
 
