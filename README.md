@@ -34,6 +34,12 @@ The public API is meant to serve from a prefetched pool in Cloudflare D1. This s
 Run the helper directly on the Proxmox host and pin it to an explicit release tag:
 
 ```bash
+INFNOISE_LXC_REF="v0.1.0" bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
+```
+
+Or, if you prefer two commands:
+
+```bash
 export INFNOISE_LXC_REF="v0.1.0"
 bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
 ```
@@ -57,6 +63,20 @@ bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/i
 ```
 
 ### Troubleshooting
+
+If the helper clears the terminal and exits with:
+
+```text
+/dev/fd/62: line 364: SSH_CLIENT: unbound variable
+```
+
+you were hitting an upstream `community-scripts` helper bug triggered when `SSH_CLIENT` is unset. `ct/infnoise-trng.sh` now initializes that variable before sourcing the upstream helper, so current versions run correctly from the Proxmox console, Web UI shell, and non-SSH sessions.
+
+If you are running an older helper revision, use:
+
+```bash
+SSH_CLIENT='' INFNOISE_LXC_REF="v0.1.0" bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
+```
 
 If the helper exits with:
 
