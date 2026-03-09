@@ -8,6 +8,7 @@ APP="Infinite Noise TRNG Sidecar"
 INFNOISE_LXC_REPO="${INFNOISE_LXC_REPO:-w33ts/infnoise-lxc}"
 INFNOISE_LXC_REF="${INFNOISE_LXC_REF:-}"
 INFNOISE_LXC_TARBALL_URL="${INFNOISE_LXC_TARBALL_URL:-}"
+INFNOISE_LXC_REPO_URL="https://github.com/${INFNOISE_LXC_REPO}"
 HOST_TMP_DIR=""
 HOST_STAGE_DIR=""
 CT_STAGE_DIR="/tmp/infnoise-lxc"
@@ -41,15 +42,33 @@ get_tarball_url() {
     "$INFNOISE_LXC_REPO" "$INFNOISE_LXC_REF" "$INFNOISE_LXC_REF"
 }
 
+get_archive_fallback_url() {
+  if [[ -z "$INFNOISE_LXC_REF" ]]; then
+    return
+  fi
+
+  printf 'https://github.com/%s/archive/refs/tags/%s.tar.gz\n' \
+    "$INFNOISE_LXC_REPO" "$INFNOISE_LXC_REF"
+}
+
 prepare_stage_dir() {
-  local tarball_url archive_path extracted_root
+  local tarball_url fallback_url archive_path extracted_root
 
   tarball_url="$(get_tarball_url)"
+  fallback_url="$(get_archive_fallback_url)"
   HOST_TMP_DIR="$(mktemp -d /tmp/infnoise-lxc.XXXXXX)"
   archive_path="$HOST_TMP_DIR/infnoise-lxc.tar.gz"
 
-  msg_info "Downloading release payload ${INFNOISE_LXC_REF:-custom}"
-  curl -fsSL "$tarball_url" -o "$archive_path"
+  msg_info "Preparing release payload ${INFNOISE_LXC_REF:-custom}"
+  if ! curl -fsSL "$tarball_url" -o "$archive_path"; then
+    if [[ -n "$fallback_url" && "$fallback_url" != "$tarball_url" ]]; then
+      msg_warn "Release asset unavailable, falling back to GitHub source archive for $INFNOISE_LXC_REF"
+      curl -fsSL "$fallback_url" -o "$archive_path"
+    else
+      msg_error "Unable to download release payload from $tarball_url"
+      exit 1
+    fi
+  fi
   tar -xzf "$archive_path" -C "$HOST_TMP_DIR"
 
   for extracted_root in "$HOST_TMP_DIR"/*; do
@@ -73,6 +92,21 @@ push_stage_file() {
   pct push "$CTID" "$source_path" "$dest_path" >/dev/null
 }
 
+set_container_description() {
+  local description
+
+  description=$(
+    cat <<EOF
+Infinite Noise TRNG Sidecar
+
+Repository: ${INFNOISE_LXC_REPO_URL}
+Release: ${INFNOISE_LXC_REF:-custom}
+EOF
+  )
+
+  pct set "$CTID" -description "$description" >/dev/null
+}
+
 ensure_config_line() {
   local line="$1"
 
@@ -90,6 +124,54 @@ ensure_config_line() {
   fi
 }
 
+upsert_config_entry() {
+  local key="$1"
+  local value="$2"
+
+  if [[ -z "$CT_CONFIG_PATH" ]]; then
+    CT_CONFIG_PATH="/etc/pve/lxc/${CTID}.conf"
+  fi
+
+  python3 - "$CT_CONFIG_PATH" "$key" "$value" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+key = sys.argv[2]
+value = sys.argv[3]
+target = f"{key}: {value}"
+prefix = f"{key}:"
+
+lines = path.read_text().splitlines()
+updated = []
+replaced = False
+
+for line in lines:
+    if line.startswith(prefix):
+        if not replaced:
+            updated.append(target)
+            replaced = True
+        continue
+    updated.append(line)
+
+if not replaced:
+    updated.append(target)
+
+path.write_text("\n".join(updated) + "\n")
+PY
+}
+
+restart_container() {
+  local status
+
+  status="$(pct status "$CTID" 2>/dev/null || true)"
+  if [[ "$status" == "status: running" ]]; then
+    pct stop "$CTID" >/dev/null
+  fi
+
+  pct start "$CTID" >/dev/null
+}
+
 trap cleanup EXIT
 
 header_info "$APP"
@@ -98,21 +180,21 @@ color
 catch_errors
 start
 build_container
-description
+set_container_description
 
-msg_info "Attaching FTDI USB permissions to CT $CTID"
+msg_info "Configuring USB passthrough for CT $CTID"
 ensure_config_line "lxc.cgroup2.devices.allow: c 189:* rwm"
-pct set "$CTID" -mp0 /dev/bus/usb,mp=/dev/bus/usb >/dev/null || true
-pct reboot "$CTID" >/dev/null
+upsert_config_entry "mp0" "/dev/bus/usb,mp=/dev/bus/usb"
+restart_container
 msg_ok "USB access configured"
 
 prepare_stage_dir
 
-msg_info "Creating installer staging directory inside CT $CTID"
+msg_info "Preparing installer staging in CT $CTID"
 pct exec "$CTID" -- bash -lc "rm -rf '$CT_STAGE_DIR' && mkdir -p '$CT_STAGE_DIR/install' '$CT_STAGE_DIR/scripts' '$CT_STAGE_DIR/systemd' '$CT_STAGE_DIR/udev'"
 msg_ok "Installer staging ready"
 
-msg_info "Copying release payload into CT $CTID"
+msg_info "Copying installer payload into CT $CTID"
 push_stage_file "$HOST_STAGE_DIR/install/infnoise-trng-install.sh" "$CT_STAGE_DIR/install/infnoise-trng-install.sh"
 push_stage_file "$HOST_STAGE_DIR/scripts/trng-push.py" "$CT_STAGE_DIR/scripts/trng-push.py"
 push_stage_file "$HOST_STAGE_DIR/systemd/infnoise-trng.service" "$CT_STAGE_DIR/systemd/infnoise-trng.service"
@@ -121,7 +203,7 @@ push_stage_file "$HOST_STAGE_DIR/udev/99-infnoise.rules" "$CT_STAGE_DIR/udev/99-
 push_stage_file "$HOST_STAGE_DIR/.env.example" "$CT_STAGE_DIR/.env.example"
 msg_ok "Release payload copied"
 
-msg_info "Running in-container installer"
+msg_info "Running installer inside CT $CTID"
 pct exec "$CTID" -- bash -lc "chmod +x '$CT_STAGE_DIR/install/infnoise-trng-install.sh' && INSTALL_ROOT='$CT_STAGE_DIR' '$CT_STAGE_DIR/install/infnoise-trng-install.sh' && rm -rf '$CT_STAGE_DIR'"
 msg_ok "Installer completed"
 

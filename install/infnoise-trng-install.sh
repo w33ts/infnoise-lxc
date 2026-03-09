@@ -7,6 +7,28 @@ BUILD_DIR="/usr/local/src/infnoise-src"
 ENV_FILE="/etc/default/infnoise-trng"
 INFNOISE_REPO_URL="${INFNOISE_REPO_URL:-https://github.com/13-37-org/infnoise.git}"
 INFNOISE_REF="${INFNOISE_REF:-0.3.0}"
+INSTALL_LOG_FILE="${INFNOISE_INSTALL_LOG_FILE:-/tmp/infnoise-trng-install.log}"
+
+log_step() {
+  printf '==> %s\n' "$1"
+}
+
+run_step() {
+  local message="$1"
+  shift
+
+  log_step "$message"
+  if ! "$@" >>"$INSTALL_LOG_FILE" 2>&1; then
+    printf 'Installation failed during: %s\n' "$message" >&2
+    printf 'Full log: %s\n' "$INSTALL_LOG_FILE" >&2
+    tail -n 40 "$INSTALL_LOG_FILE" >&2 || true
+    exit 1
+  fi
+}
+
+in_container() {
+  systemd-detect-virt --quiet --container
+}
 
 require_file() {
   local path="$1"
@@ -22,12 +44,14 @@ require_file "$INSTALL_ROOT/systemd/infnoise-trng.timer"
 require_file "$INSTALL_ROOT/udev/99-infnoise.rules"
 require_file "$INSTALL_ROOT/.env.example"
 
-apt-get update
-apt-get install -y build-essential ca-certificates curl git libftdi-dev libusb-dev python3 python3-venv udev
+: >"$INSTALL_LOG_FILE"
+
+run_step "Updating apt package lists" apt-get update -qq
+run_step "Installing build dependencies" apt-get install -y -qq build-essential ca-certificates curl git libftdi-dev libusb-dev python3 python3-venv udev
 
 rm -rf "$BUILD_DIR"
-git clone --depth 1 --branch "$INFNOISE_REF" "$INFNOISE_REPO_URL" "$BUILD_DIR"
-make -C "$BUILD_DIR/software" -f Makefile.linux
+run_step "Cloning infnoise source" git clone --depth 1 --branch "$INFNOISE_REF" "$INFNOISE_REPO_URL" "$BUILD_DIR"
+run_step "Building infnoise binary" make -C "$BUILD_DIR/software" -f Makefile.linux
 install -m 0755 "$BUILD_DIR/software/infnoise" /usr/local/bin/infnoise
 
 install -d -m 0755 "$APP_DIR"
@@ -41,9 +65,11 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 udevadm control --reload-rules || true
-udevadm trigger || true
-systemctl daemon-reload
-systemctl enable infnoise-trng.timer
+if ! in_container; then
+  run_step "Triggering host udev events" udevadm trigger
+fi
+run_step "Reloading systemd units" systemctl daemon-reload
+run_step "Enabling infnoise timer" systemctl enable infnoise-trng.timer
 
 cat <<EOF
 
@@ -54,5 +80,6 @@ Next steps:
   2. Confirm the USB device is visible inside the container.
   3. Start the timer with: systemctl start infnoise-trng.timer
   4. Check status with: systemctl status infnoise-trng.timer infnoise-trng.service
+  5. Review detailed install logs at: $INSTALL_LOG_FILE
 
 EOF

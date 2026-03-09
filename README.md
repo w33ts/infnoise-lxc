@@ -47,7 +47,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/i
 What happens:
 
 1. the helper creates a Debian 13 LXC
-2. it mounts `/dev/bus/usb` into the container, writes the needed `lxc.cgroup2.devices.allow` entry into the CT config, and reboots the CT so USB access is applied
+2. it writes the `/dev/bus/usb` bind mount and `lxc.cgroup2.devices.allow` entries directly into the CT config, then restarts the CT so USB access is applied cleanly
 3. it downloads the matching release tarball from GitHub
 4. it copies the installer payload into the container
 5. it runs the in-container installer and enables `infnoise-trng.timer`
@@ -85,14 +85,15 @@ Unknown option: lxc.cgroup2.devices.allow
 400 unable to parse option
 ```
 
-you are running an older revision that tried to pass a low-level LXC config key through `pct set`. Current versions write `lxc.cgroup2.devices.allow: c 189:* rwm` directly to `/etc/pve/lxc/<CTID>.conf`, then reboot the container so the USB permission takes effect.
+you are running an older revision that tried to pass a low-level LXC config key through `pct set`. Current versions write both the USB bind mount and `lxc.cgroup2.devices.allow: c 189:* rwm` directly to `/etc/pve/lxc/<CTID>.conf`, then restart the container so the USB permission takes effect.
 
 To repair an already-created container manually from the Proxmox host:
 
 ```bash
 printf '%s\n' 'lxc.cgroup2.devices.allow: c 189:* rwm' >> /etc/pve/lxc/<CTID>.conf
-pct set <CTID> -mp0 /dev/bus/usb,mp=/dev/bus/usb
-pct reboot <CTID>
+printf '%s\n' 'mp0: /dev/bus/usb,mp=/dev/bus/usb' >> /etc/pve/lxc/<CTID>.conf
+pct stop <CTID>
+pct start <CTID>
 ```
 
 Also make sure the environment variable and `bash` command are separated. This is invalid:
