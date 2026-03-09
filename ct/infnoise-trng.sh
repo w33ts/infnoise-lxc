@@ -13,6 +13,7 @@ HOST_TMP_DIR=""
 HOST_STAGE_DIR=""
 CT_STAGE_DIR="/tmp/infnoise-lxc"
 CT_CONFIG_PATH=""
+HOST_UDEV_RULE_PATH="/etc/udev/rules.d/99-infnoise-host.rules"
 var_tags="security;randomness;api"
 var_cpu="1"
 var_ram="512"
@@ -105,6 +106,23 @@ EOF
   )
 
   pct set "$CTID" -description "$description" >/dev/null
+}
+
+install_host_usb_rule() {
+  local desired_rule='SUBSYSTEM=="usb", ATTR{idVendor}=="0403", ATTR{idProduct}=="6015", MODE="0666"'
+
+  if [[ -f "$HOST_UDEV_RULE_PATH" ]] && grep -Fxq "$desired_rule" "$HOST_UDEV_RULE_PATH"; then
+    return
+  fi
+
+  printf '%s\n' "$desired_rule" >"$HOST_UDEV_RULE_PATH"
+}
+
+reload_host_usb_rules() {
+  if command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules >/dev/null 2>&1 || true
+    udevadm trigger --subsystem-match=usb >/dev/null 2>&1 || true
+  fi
 }
 
 ensure_config_line() {
@@ -213,6 +231,8 @@ msg_info "Configuring USB passthrough for CT $CTID"
 ensure_config_line "lxc.cgroup2.devices.allow: c 189:* rwm"
 remove_config_line "mp0: /dev/bus/usb,mp=/dev/bus/usb"
 ensure_config_line "lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,optional,create=dir"
+install_host_usb_rule
+reload_host_usb_rules
 restart_container
 msg_ok "USB access configured"
 

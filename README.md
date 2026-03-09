@@ -47,7 +47,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/i
 What happens:
 
 1. the helper creates a Debian 13 LXC
-2. it writes the `/dev/bus/usb` bind mount and `lxc.cgroup2.devices.allow` entries directly into the CT config, then restarts the CT so USB access is applied cleanly
+2. it writes the `/dev/bus/usb` bind mount and `lxc.cgroup2.devices.allow` entries into the CT config, installs a host-side `udev` rule for the FTDI device, reloads host USB rules, then restarts the CT so USB access is applied cleanly
 3. it downloads the matching release tarball from GitHub
 4. it copies the installer payload into the container
 5. it runs the in-container installer and enables `infnoise-trng.timer`
@@ -100,6 +100,8 @@ If the helper fails right after `Configuring USB passthrough` and `pct start` ex
 
 If the installer prints `Failed to send reload request: No such file or directory` during the udev step, you were hitting a container without a running `udevd` control socket. Current versions detect that case and skip the reload instead of surfacing a misleading failure.
 
+If `infnoise` can see `/dev/bus/usb` but still cannot open the device, older revisions may have missed the host-side `udev` permission rule. Current versions install `/etc/udev/rules.d/99-infnoise-host.rules` on the Proxmox host and run `udevadm control --reload-rules && udevadm trigger --subsystem-match=usb` before starting the CT.
+
 If the console lands on a `login:` prompt instead of autologging in, you are running an older release that did not install a `console-getty.service` autologin override. Current versions configure the console to open directly as `root`, while `pct enter <CTID>` continues to work from the Proxmox host.
 
 Also make sure the environment variable and `bash` command are separated. This is invalid:
@@ -112,15 +114,23 @@ export INFNOISE_LXC_REF="v0.1.5"bash <(curl ...)
 
 1. Create a Debian 13 container.
 2. Pass the USB device through to the container.
-3. Download and extract a release tarball inside the container.
-4. Run:
+3. On the Proxmox host, install a host `udev` rule so the unprivileged CT can open the FTDI device:
+
+```bash
+printf '%s\n' 'SUBSYSTEM=="usb", ATTR{idVendor}=="0403", ATTR{idProduct}=="6015", MODE="0666"' | sudo tee /etc/udev/rules.d/99-infnoise-host.rules >/dev/null
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=usb
+```
+
+4. Download and extract a release tarball inside the container.
+5. Run:
 
 ```bash
 INSTALL_ROOT=/path/to/infnoise-lxc-v0.1.5 sudo /path/to/infnoise-lxc-v0.1.5/install/infnoise-trng-install.sh
 ```
 
-5. Copy `.env.example` to `/etc/default/infnoise-trng` and fill in the token.
-6. Enable the timer:
+6. Copy `.env.example` to `/etc/default/infnoise-trng` and fill in the token.
+7. Enable the timer:
 
 ```bash
 sudo systemctl enable --now infnoise-trng.timer
