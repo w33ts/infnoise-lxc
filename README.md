@@ -31,16 +31,16 @@ The public API is meant to serve from a prefetched pool in Cloudflare D1. This s
 
 ### Option 1: run the Proxmox helper from the host
 
-Run the helper directly on the Proxmox host and pin it to an explicit release tag:
+Run the helper directly on the Proxmox host and pin it to the current release tag (`v0.1.1`):
 
 ```bash
-INFNOISE_LXC_REF="v0.1.0" bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
+INFNOISE_LXC_REF="v0.1.1" bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
 ```
 
 Or, if you prefer two commands:
 
 ```bash
-export INFNOISE_LXC_REF="v0.1.0"
+export INFNOISE_LXC_REF="v0.1.1"
 bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
 ```
 
@@ -57,8 +57,8 @@ After the container is created, edit `/etc/default/infnoise-trng` inside it, set
 You can override the release asset URL for testing:
 
 ```bash
-export INFNOISE_LXC_REF="v0.1.0"
-export INFNOISE_LXC_TARBALL_URL="https://github.com/w33ts/infnoise-lxc/releases/download/v0.1.0/infnoise-lxc-v0.1.0.tar.gz"
+export INFNOISE_LXC_REF="v0.1.1"
+export INFNOISE_LXC_TARBALL_URL="https://github.com/w33ts/infnoise-lxc/releases/download/v0.1.1/infnoise-lxc-v0.1.1.tar.gz"
 bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
 ```
 
@@ -75,7 +75,7 @@ you were hitting an upstream `community-scripts` helper bug triggered when `SSH_
 If you are running an older helper revision, use:
 
 ```bash
-SSH_CLIENT='' INFNOISE_LXC_REF="v0.1.0" bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
+SSH_CLIENT='' INFNOISE_LXC_REF="v0.1.1" bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
 ```
 
 If the helper exits with:
@@ -98,7 +98,7 @@ pct reboot <CTID>
 Also make sure the environment variable and `bash` command are separated. This is invalid:
 
 ```bash
-export INFNOISE_LXC_REF="v0.1.0"bash <(curl ...)
+export INFNOISE_LXC_REF="v0.1.1"bash <(curl ...)
 ```
 
 ### Option 2: run the installer inside an existing LXC
@@ -109,7 +109,7 @@ export INFNOISE_LXC_REF="v0.1.0"bash <(curl ...)
 4. Run:
 
 ```bash
-INSTALL_ROOT=/path/to/infnoise-lxc-v0.1.0 sudo /path/to/infnoise-lxc-v0.1.0/install/infnoise-trng-install.sh
+INSTALL_ROOT=/path/to/infnoise-lxc-v0.1.1 sudo /path/to/infnoise-lxc-v0.1.1/install/infnoise-trng-install.sh
 ```
 
 5. Copy `.env.example` to `/etc/default/infnoise-trng` and fill in the token.
