@@ -10,6 +10,7 @@ INFNOISE_LXC_TARBALL_URL="${INFNOISE_LXC_TARBALL_URL:-}"
 HOST_TMP_DIR=""
 HOST_STAGE_DIR=""
 CT_STAGE_DIR="/tmp/infnoise-lxc"
+CT_CONFIG_PATH=""
 var_tags="security;randomness;api"
 var_cpu="1"
 var_ram="512"
@@ -71,6 +72,23 @@ push_stage_file() {
   pct push "$CTID" "$source_path" "$dest_path" >/dev/null
 }
 
+ensure_config_line() {
+  local line="$1"
+
+  if [[ -z "$CT_CONFIG_PATH" ]]; then
+    CT_CONFIG_PATH="/etc/pve/lxc/${CTID}.conf"
+  fi
+
+  if [[ ! -f "$CT_CONFIG_PATH" ]]; then
+    msg_error "Container config not found at $CT_CONFIG_PATH"
+    exit 1
+  fi
+
+  if ! grep -Fxq "$line" "$CT_CONFIG_PATH"; then
+    printf '%s\n' "$line" >>"$CT_CONFIG_PATH"
+  fi
+}
+
 trap cleanup EXIT
 
 header_info "$APP"
@@ -82,8 +100,9 @@ build_container
 description
 
 msg_info "Attaching FTDI USB permissions to CT $CTID"
-pct set "$CTID" -lxc.cgroup2.devices.allow "c 189:* rwm" >/dev/null
+ensure_config_line "lxc.cgroup2.devices.allow: c 189:* rwm"
 pct set "$CTID" -mp0 /dev/bus/usb,mp=/dev/bus/usb >/dev/null || true
+pct reboot "$CTID" >/dev/null
 msg_ok "USB access configured"
 
 prepare_stage_dir
