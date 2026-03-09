@@ -1,0 +1,14 @@
+[Unit]
+Description=Push Infinite Noise entropy batches to w33t.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/default/infnoise-trng
+ExecStart=/usr/bin/env python3 /opt/infnoise-trng/trng-push.py
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

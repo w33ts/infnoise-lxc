@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Infinite Noise refill job on a cadence
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=infnoise-trng.service
+
+[Install]
+WantedBy=timers.target
