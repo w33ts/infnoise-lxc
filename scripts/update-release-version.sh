@@ -53,6 +53,8 @@ updated[files[0]] = re.sub(r'infnoise-lxc-v[0-9]+\.[0-9]+\.[0-9]+/install/infnoi
 updated[files[0]] = re.sub(r'INSTALL_ROOT=/path/to/infnoise-lxc-v[0-9]+\.[0-9]+\.[0-9]+', f'INSTALL_ROOT=/path/to/infnoise-lxc-{version}', updated[files[0]])
 
 updated[files[1]] = re.sub(r'Pick a new semantic version tag such as `v[0-9]+\.[0-9]+\.[0-9]+`\.', f'Pick a new semantic version tag such as `{version}`.', updated[files[1]])
+updated[files[1]] = re.sub(r"printf '%s\\n' v[0-9]+\.[0-9]+\.[0-9]+ > VERSION", lambda _: f"printf '%s\\n' {version} > VERSION", updated[files[1]])
+updated[files[1]] = re.sub(r'git commit -am "Prepare v[0-9]+\.[0-9]+\.[0-9]+ release"', f'git commit -am "Prepare {version} release"', updated[files[1]])
 updated[files[1]] = re.sub(r'git tag v[0-9]+\.[0-9]+\.[0-9]+', f'git tag {version}', updated[files[1]])
 updated[files[1]] = re.sub(r'git push origin v[0-9]+\.[0-9]+\.[0-9]+', f'git push origin {version}', updated[files[1]])
 updated[files[1]] = re.sub(r'infnoise-lxc-v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz', f'infnoise-lxc-{version}.tar.gz', updated[files[1]])
