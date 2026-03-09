@@ -12,7 +12,7 @@ The host-side helper script downloads that tarball, pushes the payload into the 
 ## Release checklist
 
 1. Make sure `main` contains the changes you want to ship.
-2. Pick a new semantic version tag such as `v0.1.2`.
+2. Pick a new semantic version tag such as `v0.1.3`.
 3. Update `VERSION` and run `scripts/update-release-version.sh`.
 4. Commit the regenerated docs.
 5. Create and push the tag.
@@ -42,11 +42,11 @@ shellcheck ct/infnoise-trng.sh install/infnoise-trng-install.sh scripts/release-
 ```bash
 git checkout main
 git pull --ff-only
-printf '%s\n' v0.1.2 > VERSION
+printf '%s\n' v0.1.3 > VERSION
 scripts/update-release-version.sh
-git commit -am "Prepare v0.1.2 release"
-git tag v0.1.2
-git push origin v0.1.2
+git commit -am "Prepare v0.1.3 release"
+git tag v0.1.3
+git push origin v0.1.3
 ```
 
 The tag push triggers `.github/workflows/release.yml`, which:
@@ -61,13 +61,13 @@ The tag push triggers `.github/workflows/release.yml`, which:
 
 After the workflow completes, verify that these files exist on the release page:
 
-- `infnoise-lxc-v0.1.2.tar.gz`
-- `infnoise-lxc-v0.1.2.sha256`
+- `infnoise-lxc-v0.1.3.tar.gz`
+- `infnoise-lxc-v0.1.3.sha256`
 
 You can also verify the checksum after downloading:
 
 ```bash
-sha256sum -c infnoise-lxc-v0.1.2.sha256
+sha256sum -c infnoise-lxc-v0.1.3.sha256
 ```
 
 ## Test the published release
@@ -75,7 +75,7 @@ sha256sum -c infnoise-lxc-v0.1.2.sha256
 On the Proxmox host, run:
 
 ```bash
-export INFNOISE_LXC_REF="v0.1.2"
+export INFNOISE_LXC_REF="v0.1.3"
 bash <(curl -fsSL https://raw.githubusercontent.com/w33ts/infnoise-lxc/main/ct/infnoise-trng.sh)
 ```
 
